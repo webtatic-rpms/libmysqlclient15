@@ -1,0 +1,81 @@
+Hack the top-level Makefile to enable the openssl regression tests.
+(Why doesn't this happen automatically given the configure option??)
+
+Also, tweak the Perl test script so that the mysqld daemon gets detached
+from the calling terminal session.  Without this, the ssl_des test hangs up
+because OpenSSL tries to read a PEM key from /dev/tty.
+
+Also, tweak the Perl test script to find some files where we install them;
+without this, the build-time test works but the mysql-test RPM doesn't.
+
+
+diff -Naur mysql-5.0.77.orig/Makefile.am mysql-5.0.77/Makefile.am
+--- mysql-5.0.77.orig/Makefile.am	2009-01-29 16:41:18.000000000 -0500
++++ mysql-5.0.77/Makefile.am	2009-03-07 12:45:59.000000000 -0500
+@@ -127,11 +127,11 @@
+ 
+ test-ps:
+ 	cd mysql-test ; \
+-	    @PERL@ ./mysql-test-run.pl $(force) $(mem) --ps-protocol
++	    @PERL@ ./mysql-test-run.pl $(force) $(mem) --ssl --ps-protocol
+ 
+ test-ns:
+ 	cd mysql-test ; \
+-	    @PERL@ ./mysql-test-run.pl $(force) $(mem)
++	    @PERL@ ./mysql-test-run.pl $(force) $(mem) --ssl
+ 
+ test:	test-ns test-ps
+ 
+diff -Naur mysql-5.0.77.orig/mysql-test/lib/mtr_process.pl mysql-5.0.77/mysql-test/lib/mtr_process.pl
+--- mysql-5.0.77.orig/mysql-test/lib/mtr_process.pl	2009-01-29 17:38:31.000000000 -0500
++++ mysql-5.0.77/mysql-test/lib/mtr_process.pl	2009-03-07 12:45:59.000000000 -0500
+@@ -150,6 +150,9 @@
+     {
+       # Child, redirect output and exec
+ 
++      # Needed to become detached from terminal session
++      POSIX::setsid();
++
+       $SIG{INT}= 'DEFAULT';         # Parent do some stuff, we don't
+ 
+       my $log_file_open_mode = '>';
+diff -Naur mysql-5.0.77.orig/mysql-test/mysql-test-run.pl mysql-5.0.77/mysql-test/mysql-test-run.pl
+--- mysql-5.0.77.orig/mysql-test/mysql-test-run.pl	2009-01-29 16:42:34.000000000 -0500
++++ mysql-5.0.77/mysql-test/mysql-test-run.pl	2009-03-07 12:48:54.000000000 -0500
+@@ -1516,13 +1516,15 @@
+ 
+   $exe_ndbd=
+     mtr_exe_maybe_exists("$ndb_path/src/kernel/ndbd",
+-			 "$daemon_path/ndbd");
++			 "$daemon_path/ndbd",
++			 "/usr/libexec/ndbd");
+   $exe_ndb_mgm=
+     mtr_exe_maybe_exists("$ndb_path/src/mgmclient/ndb_mgm",
+ 			 "$ndb_path/ndb_mgm");
+   $exe_ndb_mgmd=
+     mtr_exe_maybe_exists("$ndb_path/src/mgmsrv/ndb_mgmd",
+-			 "$daemon_path/ndb_mgmd");
++			 "$daemon_path/ndb_mgmd",
++			 "/usr/libexec/ndb_mgmd");
+   $exe_ndb_waiter=
+     mtr_exe_maybe_exists("$ndb_path/tools/ndb_waiter",
+ 			 "$ndb_path/ndb_waiter");
+@@ -1623,7 +1625,8 @@
+     # Look for mysql_fix_privilege_tables.sql script
+     $file_mysql_fix_privilege_tables=
+       mtr_file_exists("$glob_basedir/scripts/mysql_fix_privilege_tables.sql",
+-		      "$glob_basedir/share/mysql_fix_privilege_tables.sql");
++		      "$glob_basedir/share/mysql_fix_privilege_tables.sql",
++		      "$path_share/mysql_fix_privilege_tables.sql");
+ 
+     if ( ! $opt_skip_ndbcluster and executable_setup_ndb()) {
+       mtr_warning("Could not find all required ndb binaries, " .
+@@ -4103,7 +4106,7 @@
+ 
+   if ( defined $exe )
+   {
+-    $pid= mtr_spawn($exe, $args, "",
++    $pid= mtr_spawn($exe, $args, '/dev/null',
+ 		    $mysqld->{'path_myerr'},
+ 		    $mysqld->{'path_myerr'},
+ 		    "",

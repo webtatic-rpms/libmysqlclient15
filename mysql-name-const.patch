@@ -1,0 +1,110 @@
+Patch for RHEL bug #526850, extracted from upstream commits list.
+This will not be needed in any version later than 5.0.77.
+
+
+From: Date: February 5 2009 8:43am
+Subject: bzr commit into mysql-5.0-bugteam branch (ramil:2738) Bug#42014
+List-Archive: http://lists.mysql.com/commits/65288
+X-Bug: 42014
+Message-Id: <0KEL004OH1H5XQ40@fe-emea-09.sun.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7BIT
+
+#At file:///home/ram/mysql/mysql-5.0-bugteam/ based on revid:chad@stripped
+
+ 2738 Ramil Kalimullin	2009-02-05
+      Fix for bug#42014: Crash, name_const with collate
+      
+      Problem: some queries using NAME_CONST(.. COLLATE ...)
+      lead to server crash due to failed type cast.
+      
+      Fix: return the underlying item's type in case of
+      NAME_CONST(.. COLLATE ...) to avoid wrong casting.
+modified:
+  mysql-test/r/func_misc.result
+  mysql-test/t/func_misc.test
+  sql/item.cc
+
+per-file messages:
+  mysql-test/r/func_misc.result
+    Fix for bug#42014: Crash, name_const with coll
+      - test result.
+  mysql-test/t/func_misc.test
+    Fix for bug#42014: Crash, name_const with coll
+      - test case.
+  sql/item.cc
+    Fix for bug#42014: Crash, name_const with coll
+      - in case of NAME_CONST('name', 'value' COLLATE collation)
+    Item_name_const::type() returns type of 'value' argument 
+    to awoid wrong type casting of the Item_name_const items.
+=== modified file 'mysql-test/r/func_misc.result'
+--- a/mysql-test/r/func_misc.result	2008-07-10 01:58:30 +0000
++++ b/mysql-test/r/func_misc.result	2009-02-05 07:43:39 +0000
+@@ -319,4 +319,9 @@ select @my_uuid_date - @my_uuid_syntheti
+ @my_uuid_date - @my_uuid_synthetic
+ 0
+ set @@session.time_zone=@save_tz;
++CREATE TABLE t1 (a DATE);
++SELECT * FROM t1 WHERE a = NAME_CONST('reportDate',
++_binary'2009-01-09' COLLATE 'binary');
++a
++DROP TABLE t1;
+ End of 5.0 tests
+
+=== modified file 'mysql-test/t/func_misc.test'
+--- a/mysql-test/t/func_misc.test	2008-07-10 01:58:30 +0000
++++ b/mysql-test/t/func_misc.test	2009-02-05 07:43:39 +0000
+@@ -436,5 +436,14 @@ select @my_uuid_date - @my_uuid_syntheti
+ 
+ set @@session.time_zone=@save_tz;
+ 
++
++#
++# Bug#42014: Crash, name_const with collate
++#
++CREATE TABLE t1 (a DATE);
++SELECT * FROM t1 WHERE a = NAME_CONST('reportDate',
++  _binary'2009-01-09' COLLATE 'binary');
++DROP TABLE t1;
++
+ --echo End of 5.0 tests
+ 
+
+=== modified file 'sql/item.cc'
+--- a/sql/item.cc	2009-01-31 01:07:36 +0000
++++ b/sql/item.cc	2009-02-05 07:43:39 +0000
+@@ -1243,13 +1243,26 @@ Item::Type Item_name_const::type() const
+     valid_args guarantees value_item->basic_const_item(); if type is
+     FUNC_ITEM, then we have a fudged item_func_neg() on our hands
+     and return the underlying type.
++    For Item_func_set_collation()
++    e.g. NAME_CONST('name', 'value' COLLATE collation) we return its
++    'value' argument type. 
+   */
+-  return valid_args ?
+-             (((value_item->type() == FUNC_ITEM) &&
+-               (((Item_func *) value_item)->functype() == Item_func::NEG_FUNC)) ?
+-             ((Item_func *) value_item)->key_item()->type() :
+-             value_item->type()) :
+-           NULL_ITEM;
++  if (!valid_args)
++    return NULL_ITEM;
++  Item::Type value_type= value_item->type();
++  if (value_type == FUNC_ITEM)
++  {
++    /* 
++      The second argument of NAME_CONST('name', 'value') must be 
++      a simple constant item or a NEG_FUNC/COLLATE_FUNC.
++    */
++    DBUG_ASSERT(((Item_func *) value_item)->functype() == 
++                Item_func::NEG_FUNC ||
++                ((Item_func *) value_item)->functype() == 
++                Item_func::COLLATE_FUNC);
++    return ((Item_func *) value_item)->key_item()->type();            
++  }
++  return value_type;
+ }
+ 
+ 
+

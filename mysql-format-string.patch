@@ -1,0 +1,47 @@
+Fix for CVE-2009-2446: a user-supplied string was being passed as the format
+string to mysql_log.write(), resulting in a crash (or perhaps worse things)
+if the string contained any % characters.
+
+
+diff -Naur mysql-5.0.77.orig/libmysqld/sql_parse.cc mysql-5.0.77/libmysqld/sql_parse.cc
+--- mysql-5.0.77.orig/libmysqld/sql_parse.cc	2009-01-29 16:45:33.000000000 -0500
++++ mysql-5.0.77/libmysqld/sql_parse.cc	2009-07-16 17:29:36.000000000 -0400
+@@ -2096,7 +2096,7 @@
+       }
+       if (check_access(thd,CREATE_ACL,db,0,1,0,is_schema_db(db)))
+ 	break;
+-      mysql_log.write(thd,command,packet);
++      mysql_log.write(thd,command,"%s",packet);
+       bzero(&create_info, sizeof(create_info));
+       mysql_create_db(thd, (lower_case_table_names == 2 ? alias : db),
+                       &create_info, 0);
+@@ -2121,7 +2121,7 @@
+                    ER(ER_LOCK_OR_ACTIVE_TRANSACTION), MYF(0));
+ 	break;
+       }
+-      mysql_log.write(thd,command,db);
++      mysql_log.write(thd,command,"%s",db);
+       mysql_rm_db(thd, db, 0, 0);
+       break;
+     }
+diff -Naur mysql-5.0.77.orig/sql/sql_parse.cc mysql-5.0.77/sql/sql_parse.cc
+--- mysql-5.0.77.orig/sql/sql_parse.cc	2009-01-29 16:45:33.000000000 -0500
++++ mysql-5.0.77/sql/sql_parse.cc	2009-07-16 17:27:49.000000000 -0400
+@@ -2096,7 +2096,7 @@
+       }
+       if (check_access(thd,CREATE_ACL,db,0,1,0,is_schema_db(db)))
+ 	break;
+-      mysql_log.write(thd,command,packet);
++      mysql_log.write(thd,command,"%s",packet);
+       bzero(&create_info, sizeof(create_info));
+       mysql_create_db(thd, (lower_case_table_names == 2 ? alias : db),
+                       &create_info, 0);
+@@ -2121,7 +2121,7 @@
+                    ER(ER_LOCK_OR_ACTIVE_TRANSACTION), MYF(0));
+ 	break;
+       }
+-      mysql_log.write(thd,command,db);
++      mysql_log.write(thd,command,"%s",db);
+       mysql_rm_db(thd, db, 0, 0);
+       break;
+     }
