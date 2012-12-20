@@ -1,16 +1,17 @@
 Name: libmysqlclient15
-Version: 5.0.77
-Release: 1.1%{?dist}
+Version: 5.0.95
+Release: 1%{?dist}
 Summary: MySQL shared libraries
 Group: Applications/Databases
 URL: http://www.mysql.com
 # exceptions allow client libraries to be linked with most open source SW,
-# not only GPL code.
+# not only GPL code.  See README.mysql-license
 License: GPLv2 with exceptions
 
 Source0: http://dev.mysql.com/get/Downloads/MySQL-5.0/mysql-%{version}.tar.gz
 Source4: scriptstub.c
 Source5: my_config.h
+Source7: README.mysql-license
 # Working around perl dependency checking bug in rpm FTTB. Remove later.
 Source999: filter-requires-mysql.sh 
 Patch1: mysql-libdir.patch
@@ -23,28 +24,15 @@ Patch7: mysql-rpl-test.patch
 Patch8: mysql-install-test.patch
 Patch9: mysql-bdb-link.patch
 Patch10: mysql-strmov.patch
-Patch11: mysql-html-bug.patch
+Patch12: mysql-s390-truncate.patch
 Patch13: mysql-no-dbug.patch
 Patch15: mysql-stack-guard.patch
 Patch16: mysql-expired-certs.patch
-Patch17: mysql-format-string.patch
-Patch18: mysql-name-const.patch
-Patch19: mysql-cve-2009-4019.patch
-Patch20: mysql-cve-2009-4028.patch
-Patch21: mysql-cve-2009-4030.patch
 Patch22: mysql-cve-2010-1626.patch
-Patch23: mysql-cve-2010-1848_1850.patch
-Patch24: mysql-cve-2010-3677.patch
 Patch25: mysql-cve-2010-3680.patch
 Patch26: mysql-cve-2010-3681.patch
-Patch27: mysql-cve-2010-3682.patch
-Patch28: mysql-cve-2010-3833.patch
-Patch29: mysql-cve-2010-3835.patch
-Patch30: mysql-cve-2010-3836.patch
-Patch31: mysql-cve-2010-3837.patch
-Patch32: mysql-cve-2010-3838.patch
 Patch33: mysql-cve-2010-3839.patch
-Patch34: mysql-cve-2010-3840.patch
+Patch38: mysql-more-blobs.patch
 
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 Prereq: /sbin/ldconfig, /sbin/install-info, grep, fileutils
@@ -95,28 +83,15 @@ developing MySQL client applications.
 %patch8 -p1
 %patch9 -p1
 %patch10 -p1
-%patch11 -p1
+%patch12 -p1
 %patch13 -p1
 %patch15 -p1
 %patch16 -p1
-%patch17 -p1
-%patch18 -p1
-%patch19 -p1
-%patch20 -p1
-%patch21 -p1
 %patch22 -p1
-%patch23 -p1
-%patch24 -p1
 %patch25 -p1
 %patch26 -p1
-%patch27 -p1
-%patch28 -p1
-%patch29 -p1
-%patch30 -p1
-%patch31 -p1
-%patch32 -p1
 %patch33 -p1
-%patch34 -p1
+%patch38 -p1
 
 libtoolize --force
 aclocal
@@ -207,6 +182,9 @@ rm -rf $RPM_BUILD_ROOT%{_bindir}
 mkdir -p $RPM_BUILD_ROOT/etc/ld.so.conf.d
 echo "%{_origlibdir}/mysql" > $RPM_BUILD_ROOT/etc/ld.so.conf.d/%{name}-%{_arch}.conf
 
+# copy additional docs into build tree so %%doc will find them
+cp %{SOURCE7} README.mysql-license
+
 %clean
 rm -rf $RPM_BUILD_ROOT
 
@@ -220,7 +198,7 @@ fi
 
 %files
 %defattr(-,root,root)
-%doc README COPYING EXCEPTIONS-CLIENT
+%doc README COPYING README.mysql-license
 %{_origlibdir}/mysql/libmysqlclient*.so.*
 /etc/ld.so.conf.d/*
 
@@ -232,7 +210,10 @@ fi
 %{_libdir}/mysql/mysql_config
 
 %changelog
-* Sat Feb 19 2011 Andy Thompson <andy@webtatic.com> 5.9.77-1.1
+* Thu Dec 20 2012 Andy Thompson <andy@webtatic.com> 5.0.95-1
+- update to mysql-5.0.95
+
+* Sat Feb 19 2011 Andy Thompson <andy@webtatic.com> 5.0.77-1.1
 - rebuild for repository recovery
 
 * Mon Dec 20 2010 Andy Thompson <andy@webtatic.com> 5.0.77-1

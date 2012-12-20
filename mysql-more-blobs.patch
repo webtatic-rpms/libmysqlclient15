@@ -1,0 +1,62 @@
+The upstream patch for their bug #41486 is broken: it supposes that it
+can break an input line arbitrarily, but breaking just after a backslash
+is a bad idea, and even more importantly batch_readline() supposes that
+it can overwrite the line's ending newline with \0.  If there isn't any
+ending newline, that clobbers the first character of the rest of the line.
+
+This patch must be applied after mysql-large-blobs.patch.  We keep it
+separate because this will still be needed for mysql versions above 5.0.80,
+at least until they take this patch back.
+
+
+diff -Naur mysql-5.0.77.bad/client/my_readline.h mysql-5.0.77/client/my_readline.h
+--- mysql-5.0.77.bad/client/my_readline.h	2011-03-15 15:53:04.735799369 -0400
++++ mysql-5.0.77/client/my_readline.h	2011-03-15 15:53:41.855795861 -0400
+@@ -22,7 +22,8 @@
+   char *end;			/* Pointer at buffer end */
+   char *start_of_line,*end_of_line;
+   uint bufread;			/* Number of bytes to get with each read(). */
+-  uint eof;
++  char eof;			/* true after file EOF is reached */
++  char putback;			/* character to restore after line end */
+   ulong max_size;
+   ulong read_length;		/* Length of last read string */
+ } LINE_BUFFER;
+diff -Naur mysql-5.0.77.bad/client/readline.cc mysql-5.0.77/client/readline.cc
+--- mysql-5.0.77.bad/client/readline.cc	2011-03-15 15:53:04.738894977 -0400
++++ mysql-5.0.77/client/readline.cc	2011-03-15 16:18:58.760831723 -0400
+@@ -48,12 +48,17 @@
+   ulong out_length;
+   DBUG_ASSERT(truncated != NULL);
+ 
++  /* restore character overwritten in previous call */
++  if (line_buff->putback)
++    line_buff->start_of_line[line_buff->read_length] = line_buff->putback;
++
+   if (!(pos=intern_read_line(line_buff,&out_length, truncated)))
+     return 0;
+   if (out_length && pos[out_length-1] == '\n')
+     if (--out_length && pos[out_length-1] == '\r')  /* Remove '\n' */
+       out_length--;                                 /* Remove '\r' */
+   line_buff->read_length=out_length;
++  line_buff->putback = pos[out_length];
+   pos[out_length]=0;
+   return pos;
+ }
+@@ -225,7 +230,15 @@
+       }
+       else
+         continue;
+-      pos--;					/* break line here */
++      /*
++        Back up so that EOB null isn't included in the line; then back up
++        some more, if necessary, so that we don't break the incomplete line
++        immediately after a backslash.  That prevents breaking the command
++        detection logic in mysql.cc.
++       */
++      do {
++        pos--;
++      } while (*pos == '\\' && pos > buffer->end_of_line);
+       *truncated= 1;
+     }
+     else
