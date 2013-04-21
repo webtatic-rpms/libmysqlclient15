@@ -1,6 +1,6 @@
 Name: libmysqlclient15
 Version: 5.0.95
-Release: 1%{?dist}
+Release: 5%{?dist}
 Summary: MySQL shared libraries
 Group: Applications/Databases
 URL: http://www.mysql.com
@@ -28,10 +28,17 @@ Patch12: mysql-s390-truncate.patch
 Patch13: mysql-no-dbug.patch
 Patch15: mysql-stack-guard.patch
 Patch16: mysql-expired-certs.patch
+Patch17: mysql-enable-logrotate.patch
+Patch18: mysql-logrotate.patch
+Patch19: mysql-explain-crash.patch
+Patch21: mysql-cve-2009-4030.patch
 Patch22: mysql-cve-2010-1626.patch
 Patch25: mysql-cve-2010-3680.patch
 Patch26: mysql-cve-2010-3681.patch
 Patch33: mysql-cve-2010-3839.patch
+Patch34: mysql-cve-2012-2122.patch
+Patch35: mysql-cve-2012-2749.patch
+Patch36: mysql-cve-2012-5611.patch
 Patch38: mysql-more-blobs.patch
 
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
@@ -87,10 +94,17 @@ developing MySQL client applications.
 %patch13 -p1
 %patch15 -p1
 %patch16 -p1
+%patch17 -p1
+%patch18 -p1
+%patch19 -p1
+%patch21 -p1
 %patch22 -p1
 %patch25 -p1
 %patch26 -p1
 %patch33 -p1
+%patch34 -p1
+%patch35 -p1
+%patch36 -p1
 %patch38 -p1
 
 libtoolize --force
@@ -210,6 +224,9 @@ fi
 %{_libdir}/mysql/mysql_config
 
 %changelog
+* Sun Apr 21 2013 Andy Thompson <andy@webtatic.com> 5.0.95-5
+- update to mysql-5.0.95-5
+
 * Thu Dec 20 2012 Andy Thompson <andy@webtatic.com> 5.0.95-1
 - update to mysql-5.0.95
 
